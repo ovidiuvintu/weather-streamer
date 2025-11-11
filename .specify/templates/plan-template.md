@@ -31,7 +31,24 @@
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-[Gates determined based on constitution file]
+Verify compliance with Weather Streamer Constitution v1.0.0:
+
+- [ ] **Clean Architecture**: Does design separate API, Application, Infrastructure, Domain layers?
+- [ ] **Database Integrity**: Are data types, constraints, keys properly defined?
+- [ ] **Configuration**: Are connection strings externalized? Environment-specific configs ready?
+- [ ] **Validation & Security**: Input validation planned? HTTPS/CORS configured? SQL parameterized?
+- [ ] **Error Handling**: Global exception middleware planned? Consistent error responses?
+- [ ] **Performance**: Caching strategy defined? Connection pooling utilized?
+- [ ] **Testing**: Unit and integration test strategy documented?
+- [ ] **Deployment**: Persistence strategy defined? Backup plan documented?
+- [ ] **Documentation**: API docs (Swagger) planned? Health checks defined?
+- [ ] **Code Quality**: SOLID principles applied? Code review process followed?
+- [ ] **Async-First**: All I/O operations async? No blocking calls (.Result, .Wait())?
+- [ ] **Layer Separation**: Business → Data Access only? No cross-layer violations?
+- [ ] **Logging**: Structured logging with correlation IDs planned? Metrics defined?
+- [ ] **Database Standards**: EF Core with migrations? Entity configs explicit? Transactions planned?
+
+**Violations Requiring Justification**: [List any constitutional violations with detailed rationale in Complexity Tracking section]
 
 ## Project Structure
 
