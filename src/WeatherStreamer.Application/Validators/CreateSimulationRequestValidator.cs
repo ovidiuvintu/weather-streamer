@@ -18,7 +18,8 @@ public class CreateSimulationRequestValidator : AbstractValidator<CreateSimulati
         // StartTime validation
         RuleFor(x => x.StartTime)
             .NotEmpty().WithMessage("StartTime is required")
-            .Must(BeValidIso8601DateTime).WithMessage("StartTime must be in ISO 8601 format (e.g., 2025-11-10T14:30:00Z)");
+            .Must(BeValidIso8601DateTime).WithMessage("StartTime must be in ISO 8601 format (e.g., 2025-11-10T14:30:00Z)")
+            .Must(BeInFuture).WithMessage("StartTime must be in the future");
 
         // DataSource validation
         RuleFor(x => x.DataSource)
@@ -31,6 +32,39 @@ public class CreateSimulationRequestValidator : AbstractValidator<CreateSimulati
     private bool BeValidIso8601DateTime(string dateTimeString)
     {
         return DateTime.TryParse(dateTimeString, out _);
+    }
+
+    private bool BeInFuture(string dateTimeString)
+    {
+        if (!DateTime.TryParse(dateTimeString, out var startTime))
+            return true; // Let BeValidIso8601DateTime handle invalid format
+
+        // Convert to UTC if not already
+        if (startTime.Kind != DateTimeKind.Utc)
+        {
+            startTime = startTime.ToUniversalTime();
+        }
+
+        // Truncate both times to second precision for comparison
+        var currentTime = new DateTime(
+            DateTime.UtcNow.Year,
+            DateTime.UtcNow.Month,
+            DateTime.UtcNow.Day,
+            DateTime.UtcNow.Hour,
+            DateTime.UtcNow.Minute,
+            DateTime.UtcNow.Second,
+            DateTimeKind.Utc);
+
+        var startTimeToSecond = new DateTime(
+            startTime.Year,
+            startTime.Month,
+            startTime.Day,
+            startTime.Hour,
+            startTime.Minute,
+            startTime.Second,
+            DateTimeKind.Utc);
+
+        return startTimeToSecond > currentTime;
     }
 
     private bool NotStartWithDigit(string filePath)
