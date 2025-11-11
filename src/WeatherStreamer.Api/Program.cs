@@ -67,9 +67,17 @@ try
     builder.Services.AddInMemoryRateLimiting();
     builder.Services.AddSingleton<IRateLimitConfiguration, RateLimitConfiguration>();
 
-    // Add Swagger (commented out temporarily for EF migrations)
-    // builder.Services.AddEndpointsApiExplorer();
-    // builder.Services.AddSwaggerGen();
+    // Add Swagger
+    builder.Services.AddEndpointsApiExplorer();
+    builder.Services.AddSwaggerGen(c =>
+    {
+        c.SwaggerDoc("v1", new Microsoft.OpenApi.Models.OpenApiInfo
+        {
+            Title = "Weather Streamer API",
+            Version = "v1",
+            Description = "API for managing weather simulation data streams"
+        });
+    });
 
     var app = builder.Build();
 
@@ -80,8 +88,12 @@ try
     // Configure the HTTP request pipeline
     if (app.Environment.IsDevelopment())
     {
-        // app.UseSwagger();
-        // app.UseSwaggerUI();
+        app.UseSwagger();
+        app.UseSwaggerUI(c =>
+        {
+            c.SwaggerEndpoint("/swagger/v1/swagger.json", "Weather Streamer API v1");
+            c.RoutePrefix = "swagger";
+        });
     }
 
     app.UseHttpsRedirection();
