@@ -19,6 +19,10 @@
 
 - Q: Additional Properties in JSON Payload - The edge cases mention "What happens when the JSON payload contains additional properties beyond the schema?" but there's no specified validation behavior. → A: Reject requests with additional properties; return HTTP 400 with error message listing unexpected fields
 
+### Session 2025-11-11
+
+- Q: StartTime policy (future vs past, precision, failure code)? → A: Require StartTime strictly in the future (UTC, compared at second-level precision). Return HTTP 400 if StartTime is in the past or equal to the current second.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Create Valid Weather Simulation (Priority: P1)
@@ -56,6 +60,8 @@ A weather monitoring system operator submits malformed or invalid simulation dat
 3. **Given** a simulation payload with "StartTime" not in ISO 8601 format, **When** the operator submits the request, **Then** the system returns HTTP 400 with an error message about invalid date format and logs the error
 
 4. **Given** a simulation payload with "Status" value not in ["Not Started", "In Progress", "Completed"], **When** the operator submits the request, **Then** the system returns HTTP 400 with an error message about invalid status value
+
+5. **Given** a simulation payload with "StartTime" earlier than or equal to the current UTC time at second-level precision, **When** the operator submits the request, **Then** the system returns HTTP 400 with the error message "StartTime must be in the future" and logs the validation failure
 
 ---
 
@@ -105,6 +111,8 @@ When database connectivity issues or storage failures occur during simulation cr
 - What happens when multiple simulations are created simultaneously with different files?
 - What happens when the simulation Name contains special characters, emojis, or is exactly 70 characters long?
 - What happens when StartTime is set to a date far in the past or far in the future?
+- StartTime in the past or equal to the current second: Reject with HTTP 400; comparison uses UTC at second-level precision (milliseconds ignored)
+- No explicit upper bound on future StartTime
 - CSV file locked by another process: Return HTTP 423 (Locked) with error message; operator should retry later
 - What happens when the database connection is lost mid-transaction?
 - JSON payload with additional properties: Reject with HTTP 400 and list unexpected field names in error message
@@ -154,6 +162,8 @@ When database connectivity issues or storage failures occur during simulation cr
 - **FR-017**: System MUST convert StartTime to UTC timezone before persisting to database
 
 - **FR-018**: System MUST set Status to "Not Started" when initially creating a simulation record
+
+- **FR-017a**: System MUST require StartTime to be strictly in the future relative to the current UTC time, evaluated at second-level precision (milliseconds ignored). Requests with StartTime in the past or equal to the current second MUST return HTTP 400 with a clear error message.
 
 - **FR-019**: System MUST perform database transaction rollback if storage operation fails and return HTTP 500 with error details
 

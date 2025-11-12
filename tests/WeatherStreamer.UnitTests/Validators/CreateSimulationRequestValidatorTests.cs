@@ -23,7 +23,7 @@ public class CreateSimulationRequestValidatorTests
         var request = new CreateSimulationRequest
         {
             Name = "Valid Simulation Name",
-            StartTime = "2025-01-15T10:30:00Z",
+            StartTime = "2026-01-15T10:30:00Z",
             DataSource = @"C:\test-data\sample.csv"
         };
 
@@ -42,7 +42,7 @@ public class CreateSimulationRequestValidatorTests
         var request = new CreateSimulationRequest
         {
             Name = "",
-            StartTime = "2025-01-15T10:30:00Z",
+            StartTime = "2026-01-15T10:30:00Z",
             DataSource = @"C:\test-data\sample.csv"
         };
 
@@ -63,7 +63,7 @@ public class CreateSimulationRequestValidatorTests
         var request = new CreateSimulationRequest
         {
             Name = new string('A', 71), // 71 characters, exceeds 70 limit
-            StartTime = "2025-01-15T10:30:00Z",
+            StartTime = "2026-01-15T10:30:00Z",
             DataSource = @"C:\test-data\sample.csv"
         };
 
@@ -124,7 +124,7 @@ public class CreateSimulationRequestValidatorTests
         var request = new CreateSimulationRequest
         {
             Name = "Test Simulation",
-            StartTime = "2025-01-15T10:30:00Z",
+            StartTime = "2026-01-15T10:30:00Z",
             DataSource = ""
         };
 
@@ -145,7 +145,7 @@ public class CreateSimulationRequestValidatorTests
         var request = new CreateSimulationRequest
         {
             Name = "Test Simulation",
-            StartTime = "2025-01-15T10:30:00Z",
+            StartTime = "2026-01-15T10:30:00Z",
             DataSource = new string('A', 261) // 261 characters, exceeds 260 limit
         };
 
@@ -166,7 +166,7 @@ public class CreateSimulationRequestValidatorTests
         var request = new CreateSimulationRequest
         {
             Name = "Test Simulation",
-            StartTime = "2025-01-15T10:30:00Z",
+            StartTime = "2026-01-15T10:30:00Z",
             DataSource = @"C:\test-data\123file.csv"
         };
 
@@ -187,7 +187,7 @@ public class CreateSimulationRequestValidatorTests
         var request = new CreateSimulationRequest
         {
             Name = "Test Simulation",
-            StartTime = "2025-01-15T10:30:00Z",
+            StartTime = "2026-01-15T10:30:00Z",
             DataSource = @"C:\test-data\file@#$.csv"
         };
 
@@ -202,10 +202,10 @@ public class CreateSimulationRequestValidatorTests
     }
 
     [Theory]
-    [InlineData("2025-01-15T10:30:00Z")]
-    [InlineData("2025-01-15T10:30:00+05:00")]
-    [InlineData("2025-01-15T10:30:00-08:00")]
-    [InlineData("2025-01-15T10:30:00.123Z")]
+    [InlineData("2026-01-15T10:30:00Z")]
+    [InlineData("2026-01-15T10:30:00+05:00")]
+    [InlineData("2026-01-15T10:30:00-08:00")]
+    [InlineData("2026-01-15T10:30:00.123Z")]
     public void Validate_WithVariousValidIso8601Formats_PassesValidation(string startTime)
     {
         // Arrange
@@ -221,5 +221,26 @@ public class CreateSimulationRequestValidatorTests
 
         // Assert
         result.IsValid.Should().BeTrue();
+    }
+
+    [Fact]
+    public void Validate_WithStartTimeInPast_ReturnsValidationError()
+    {
+        // Arrange
+        var request = new CreateSimulationRequest
+        {
+            Name = "Test Simulation",
+            StartTime = "2020-01-15T10:30:00Z", // Past date
+            DataSource = @"C:\test-data\sample.csv"
+        };
+
+        // Act
+        var result = _validator.Validate(request);
+
+        // Assert
+        result.IsValid.Should().BeFalse();
+        result.Errors.Should().ContainSingle(e => e.PropertyName == "StartTime");
+        result.Errors.First(e => e.PropertyName == "StartTime")
+            .ErrorMessage.Should().Contain("future");
     }
 }

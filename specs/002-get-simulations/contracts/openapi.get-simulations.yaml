@@ -1,0 +1,120 @@
+openapi: 3.0.3
+info:
+  title: Weather Streamer - Simulation Retrieval API
+  version: 0.1.0
+  description: GET endpoints for listing and retrieving simulations
+servers:
+  - url: http://localhost:5000
+paths:
+  /simulations:
+    get:
+      summary: List all simulations
+      operationId: listSimulations
+      responses:
+        '200':
+          description: Successful retrieval
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Simulation'
+        '500':
+          $ref: '#/components/responses/ServerError'
+  /simulations/by-start-time:
+    get:
+      summary: List simulations at or after the specified start time (inclusive)
+      operationId: listSimulationsByStartTime
+      parameters:
+        - name: start_time
+          in: query
+          required: true
+          description: ISO 8601 timestamp (inclusive boundary). Offsets allowed.
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: Successful retrieval
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Simulation'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/ServerError'
+  /simulations/{id}:
+    get:
+      summary: Get a simulation by id
+      operationId: getSimulationById
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        '200':
+          description: Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Simulation'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/ServerError'
+components:
+  schemas:
+    Simulation:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        startTime:
+          type: string
+          format: date-time
+          description: UTC ISO 8601
+        fileName:
+          type: string
+        status:
+          type: string
+          enum: [NotStarted, InProgress, Completed]
+      required: [id, name, startTime, fileName, status]
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+        correlationId:
+          type: string
+      required: [error, message]
+  responses:
+    BadRequest:
+      description: Invalid request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    ServerError:
+      description: Server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
