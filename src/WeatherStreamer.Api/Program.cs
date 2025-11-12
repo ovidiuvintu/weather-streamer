@@ -5,6 +5,7 @@ using Serilog;
 using WeatherStreamer.Api.Middleware;
 using WeatherStreamer.Application.Repositories;
 using WeatherStreamer.Application.Services;
+using WeatherStreamer.Application.Services.Simulations;
 using WeatherStreamer.Infrastructure.Data;
 using WeatherStreamer.Infrastructure.Repositories;
 using WeatherStreamer.Infrastructure.Services;
@@ -43,15 +44,29 @@ try
     // Configure DbContext
     builder.Services.AddDbContext<WeatherStreamerDbContext>(options =>
     {
-        var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
-        options.UseSqlite(connectionString);
+        // Allow switching to InMemory for integration tests or when explicitly configured
+        var useInMemory = builder.Configuration.GetValue<bool>("UseInMemoryDatabase")
+                          || builder.Environment.IsEnvironment("Testing");
+
+        if (useInMemory)
+        {
+            var dbName = builder.Configuration.GetValue<string>("InMemoryDbName") ?? "WeatherStreamerTests";
+            options.UseInMemoryDatabase(dbName);
+        }
+        else
+        {
+            var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+            options.UseSqlite(connectionString);
+        }
     });
 
     // Register repositories
     builder.Services.AddScoped<ISimulationRepository, SimulationRepository>();
+    builder.Services.AddScoped<ISimulationReadRepository, SimulationReadRepository>();
 
     // Register services
     builder.Services.AddScoped<ISimulationService, WeatherStreamer.Application.Services.SimulationService>();
+    builder.Services.AddScoped<ISimulationReadService, SimulationReadService>();
     builder.Services.AddScoped<IFileValidationService, FileValidationService>();
 
     // Add FluentValidation
@@ -77,6 +92,13 @@ try
             Version = "v1",
             Description = "API for managing weather simulation data streams"
         });
+        // Include XML comments from this assembly for richer Swagger docs
+        var xmlFile = System.IO.Path.ChangeExtension(typeof(Program).Assembly.Location, ".xml");
+        if (System.IO.File.Exists(xmlFile))
+        {
+            c.IncludeXmlComments(xmlFile);
+        }
+        // Swashbuckle annotations extension requires Swashbuckle.Annotations package; omitted for now.
     });
 
     var app = builder.Build();

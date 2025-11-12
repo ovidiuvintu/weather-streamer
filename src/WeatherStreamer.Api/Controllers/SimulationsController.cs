@@ -1,8 +1,10 @@
 using FluentValidation;
 using Microsoft.AspNetCore.Mvc;
+using System.Globalization;
 using WeatherStreamer.Api.Models;
 using WeatherStreamer.Application.DTOs;
 using WeatherStreamer.Application.Services;
+using WeatherStreamer.Application.Services.Simulations;
 
 namespace WeatherStreamer.Api.Controllers;
 
@@ -14,18 +16,145 @@ namespace WeatherStreamer.Api.Controllers;
 public class SimulationsController : ControllerBase
 {
     private readonly ISimulationService _simulationService;
+    private readonly ISimulationReadService _readService;
     private readonly IValidator<CreateSimulationRequest> _validator;
     private readonly ILogger<SimulationsController> _logger;
 
     public SimulationsController(
         ISimulationService simulationService,
+        ISimulationReadService readService,
         IValidator<CreateSimulationRequest> validator,
         ILogger<SimulationsController> logger)
     {
         _simulationService = simulationService ?? throw new ArgumentNullException(nameof(simulationService));
+        _readService = readService ?? throw new ArgumentNullException(nameof(readService));
         _validator = validator ?? throw new ArgumentNullException(nameof(validator));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
+
+    /// <summary>
+    /// Retrieves all simulations ordered by StartTime then Id.
+    /// </summary>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    [HttpGet]
+    [ProducesResponseType(typeof(IEnumerable<SimulationDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status500InternalServerError)]
+    public async Task<IActionResult> GetSimulations(CancellationToken cancellationToken)
+    {
+        var start = DateTime.UtcNow;
+        var items = await _readService.GetAllAsync(cancellationToken);
+        var dtos = items.Select(MapToApiDto).ToList();
+        _logger.LogInformation("GET /api/simulations returned {Count} items in {Ms} ms", dtos.Count, (DateTime.UtcNow - start).TotalMilliseconds);
+        return Ok(dtos);
+    }
+
+    /// <summary>
+    /// Retrieves simulations with StartTime greater than or equal to the provided UTC boundary.
+    /// </summary>
+    /// <param name="start_time">ISO-8601 timestamp string; treated as UTC. Example: 2025-01-15T10:30:00Z</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    [HttpGet("by-start-time")]
+    [ProducesResponseType(typeof(IEnumerable<SimulationDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status500InternalServerError)]
+    public async Task<IActionResult> GetSimulationsFromStartTime([FromQuery(Name = "start_time")] string? start_time, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(start_time))
+        {
+            return BadRequest(new ErrorResponse
+            {
+                CorrelationId = Response.Headers["X-Correlation-ID"].ToString(),
+                Timestamp = DateTime.UtcNow,
+                StatusCode = StatusCodes.Status400BadRequest,
+                Error = "Invalid start_time",
+                Details = new Dictionary<string, List<string>>
+                {
+                    { "start_time", new List<string> { "The 'start_time' query parameter is required and must be a valid ISO-8601 timestamp." } }
+                }
+            });
+        }
+
+        if (!DateTimeOffset.TryParse(start_time, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out var dto))
+        {
+            return BadRequest(new ErrorResponse
+            {
+                CorrelationId = Response.Headers["X-Correlation-ID"].ToString(),
+                Timestamp = DateTime.UtcNow,
+                StatusCode = StatusCodes.Status400BadRequest,
+                Error = "Invalid start_time",
+                Details = new Dictionary<string, List<string>>
+                {
+                    { "start_time", new List<string> { "The 'start_time' must be a valid ISO-8601 timestamp (e.g., 2025-01-15T10:30:00Z)." } }
+                }
+            });
+        }
+
+        var boundaryUtc = dto.UtcDateTime;
+        var t0 = DateTime.UtcNow;
+        var items = await _readService.GetFromStartTimeAsync(boundaryUtc, cancellationToken);
+        var dtos = items.Select(MapToApiDto).ToList();
+        _logger.LogInformation("GET /api/simulations/by-start-time?start_time={Boundary} returned {Count} items in {Ms} ms", start_time, dtos.Count, (DateTime.UtcNow - t0).TotalMilliseconds);
+        return Ok(dtos);
+    }
+
+    /// <summary>
+    /// Retrieves a single simulation by id.
+    /// </summary>
+    /// <param name="id">Simulation identifier.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    [HttpGet("{id:int}")]
+    [ProducesResponseType(typeof(SimulationDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status500InternalServerError)]
+    public async Task<IActionResult> GetSimulationById([FromRoute] int id, CancellationToken cancellationToken)
+    {
+        if (id <= 0)
+        {
+            return BadRequest(new ErrorResponse
+            {
+                CorrelationId = Response.Headers["X-Correlation-ID"].ToString(),
+                Timestamp = DateTime.UtcNow,
+                StatusCode = StatusCodes.Status400BadRequest,
+                Error = "Invalid id",
+                Details = new Dictionary<string, List<string>>
+                {
+                    { "id", new List<string> { "Id must be a positive integer." } }
+                }
+            });
+        }
+
+        var start = DateTime.UtcNow;
+        var item = await _readService.GetByIdAsync(id, cancellationToken);
+        if (item is null)
+        {
+            _logger.LogInformation("GET /api/simulations/{Id} not found in {Ms} ms", id, (DateTime.UtcNow - start).TotalMilliseconds);
+            return NotFound(new ErrorResponse
+            {
+                CorrelationId = Response.Headers["X-Correlation-ID"].ToString(),
+                Timestamp = DateTime.UtcNow,
+                StatusCode = StatusCodes.Status404NotFound,
+                Error = "Not Found",
+                Details = new Dictionary<string, List<string>>
+                {
+                    { "id", new List<string> { $"Simulation with id {id} was not found." } }
+                }
+            });
+        }
+
+        _logger.LogInformation("GET /api/simulations/{Id} returned in {Ms} ms", id, (DateTime.UtcNow - start).TotalMilliseconds);
+        return Ok(MapToApiDto(item));
+    }
+
+    private static SimulationDto MapToApiDto(SimulationListItem s)
+        => new()
+        {
+            Id = s.Id,
+            Name = s.Name,
+            StartTime = s.StartTimeUtc.ToUniversalTime().ToString("yyyy-MM-dd'T'HH:mm:ss'Z'"),
+            FileName = s.FileName,
+            Status = s.Status
+        };
 
     /// <summary>
     /// Creates a new weather simulation.
@@ -88,8 +217,8 @@ public class SimulationsController : ControllerBase
                 Status = "NotStarted"
             };
 
-            // Add Location header
-            var location = Url.Action(nameof(CreateSimulation), new { id = simulationId }) ?? $"/api/simulations/{simulationId}";
+            // Add Location header to canonical resource URL
+            var location = $"/api/simulations/{simulationId}";
             return Created(location, response);
         }
         catch (FileNotFoundException ex)
