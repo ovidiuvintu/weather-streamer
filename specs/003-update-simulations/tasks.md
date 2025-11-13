@@ -18,7 +18,7 @@ Format: `[ID] [P?] [Story] Description`
 
 ## Phase 2: Foundational (Blocking Prerequisites)
 
-- [ ] T010 Add concurrency token to entity: add `RowVersion` byte[] with `[Timestamp]` in `src/WeatherStreamer.Domain/Entities/Simulation.cs`; configure as concurrency token in `src/WeatherStreamer.Infrastructure/Data/Configurations/SimulationConfiguration.cs`
+- [x] T010 Add concurrency token to entity: add `RowVersion` byte[] with `[Timestamp]` in `src/WeatherStreamer.Domain/Entities/Simulation.cs`; configure as concurrency token in `src/WeatherStreamer.Infrastructure/Data/Configurations/SimulationConfiguration.cs`
 - [ ] T011 Create EF migration `AddSimulationRowVersion` and update local dev DB
 - [x] T012 [P] Expose ETag on read responses: add ETag header to GET `/api/simulations/{id}` using base64(rowversion)
 - [x] T013 [P] Wire rowversion mapping in repository/service DTOs so reads include ETag value (if applicable)
@@ -38,12 +38,12 @@ Independent Test: Submit PATCH with If-Match ETag and verify persisted changes
 - [x] T022 [US1] Unit: Validator allows partial payload; enforces conditional rules in `tests/WeatherStreamer.UnitTests/Validators/UpdateSimulationValidatorTests.cs`
 
 ### Implementation
-- [ ] T025 [US1] Application: Add `UpdateSimulationCommand` and Handler in `src/WeatherStreamer.Application/Services/Simulations/Update/`
-- [ ] T026 [US1] Application: Add `UpdateSimulationValidator` with conditional rules
-- [ ] T027 [US1] Domain: Add method to apply updates and enforce immutability gates for StartTime/DataSource when started
-- [ ] T028 [US1] API: Add PATCH `/api/simulations/{id}` in `SimulationsController.cs` with If-Match header handling and ETag response
-- [ ] T029 [US1] Infrastructure: Map rowversion column to entity; ensure EF concurrency exceptions mapped to 409
-- [ ] T030 [US1] Logging/Audit: Log actor="anonymous", changed fields, etag before/after
+ - [x] T025 [US1] Application: Add `UpdateSimulationCommand` and Handler in `src/WeatherStreamer.Application/Services/Simulations/Update/`
+ - [x] T026 [US1] Application: Add `UpdateSimulationValidator` with conditional rules
+ - [x] T027 [US1] Domain: Add method to apply updates and enforce immutability gates for StartTime/DataSource when started
+ - [x] T028 [US1] API: Add PATCH `/api/simulations/{id}` in `SimulationsController.cs` with If-Match header handling and ETag response
+ - [x] T029 [US1] Infrastructure: Map rowversion column to entity; ensure EF concurrency exceptions mapped to 409
+ - [x] T030 [US1] Logging/Audit: Log actor="anonymous", changed fields, etag before/after
 
 Checkpoint: PATCH endpoint functional with concurrency and basic rules
 

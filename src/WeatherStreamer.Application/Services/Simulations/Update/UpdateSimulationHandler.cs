@@ -45,48 +45,7 @@ public class UpdateSimulationHandler
             }
         }
 
-        // Domain immutability checks: prevent changing StartTime/FileName if simulation already started
-        try
-        {
-            entity.EnsureMutableForUpdate(command.DataSource, parsedStartTimeUtc);
-        }
-        catch (InvalidOperationException ex)
-        {
-            // Surface as argument exception so controller maps to 400 Bad Request
-            throw new ArgumentException(ex.Message, ex);
-        }
-
-        // Apply partial updates (Name, StartTime, DataSource, Status)
-        if (command.Name is not null)
-        {
-            entity.Name = command.Name;
-        }
-
-        if (parsedStartTimeUtc.HasValue)
-        {
-            entity.StartTime = parsedStartTimeUtc.Value;
-        }
-
-        if (command.DataSource is not null)
-        {
-            // Additional format validation for DataSource should only apply when changing and when simulation is NotStarted
-            if (!UpdateSimulationCommandValidator.IsValidDataSource(command.DataSource))
-            {
-                throw new ArgumentException("DataSource is invalid or contains unsupported characters.", nameof(command.DataSource));
-            }
-
-            entity.FileName = command.DataSource;
-        }
-
-        if (command.Status is not null)
-        {
-            if (Enum.TryParse<SimulationStatus>(command.Status.Replace(" ", string.Empty), ignoreCase: true, out var status))
-            {
-                entity.Status = status;
-            }
-        }
-
-        // Snapshot before update for audit
+        // Snapshot before update for audit (capture current persisted values)
         var before = new
         {
             Id = entity.Id,
@@ -96,6 +55,30 @@ public class UpdateSimulationHandler
             Status = entity.Status,
             RowVersion = entity.RowVersion is null ? null : Convert.ToBase64String(entity.RowVersion)
         };
+
+        // Parse and resolve status if provided
+        SimulationStatus? requestedStatus = null;
+        if (command.Status is not null && Enum.TryParse<SimulationStatus>(command.Status.Replace(" ", string.Empty), ignoreCase: true, out var parsedStatus))
+        {
+            requestedStatus = parsedStatus;
+        }
+
+        // Validate DataSource format when provided
+        if (command.DataSource is not null && !UpdateSimulationCommandValidator.IsValidDataSource(command.DataSource))
+        {
+            throw new ArgumentException("DataSource is invalid or contains unsupported characters.", nameof(command.DataSource));
+        }
+
+        // Apply domain-level update which will enforce immutability and status transition rules
+        try
+        {
+            entity.ApplyUpdate(command.Name, parsedStartTimeUtc, command.DataSource, requestedStatus);
+        }
+        catch (InvalidOperationException ex)
+        {
+            // Surface domain rule violations as 400 Bad Request
+            throw new ArgumentException(ex.Message, ex);
+        }
 
         // Decode If-Match
         byte[] ifMatchBytes;

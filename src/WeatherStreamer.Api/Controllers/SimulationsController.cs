@@ -160,16 +160,25 @@ public class SimulationsController : ControllerBase
         }
         catch (InvalidOperationException ex) when (ex.Message.StartsWith("Concurrency conflict", StringComparison.OrdinalIgnoreCase))
         {
+            // Attempt to include the current resource version in the response for client to retry
+            var current = await _readService.GetByIdAsync(id, cancellationToken: cancellationToken);
+            var currentVersion = current?.ETag;
+            var details = new Dictionary<string, List<string>>
+            {
+                { "If-Match", new List<string> { "The provided version does not match the current resource version." } }
+            };
+            if (!string.IsNullOrEmpty(currentVersion))
+            {
+                details.Add("currentVersion", new List<string> { currentVersion });
+            }
+
             return Conflict(new ErrorResponse
             {
                 CorrelationId = Response.Headers["X-Correlation-ID"].ToString(),
                 Timestamp = DateTime.UtcNow,
                 StatusCode = StatusCodes.Status409Conflict,
                 Error = "Concurrency conflict",
-                Details = new Dictionary<string, List<string>>
-                {
-                    { "If-Match", new List<string> { "The provided version does not match the current resource version." } }
-                }
+                Details = details
             });
         }
     }
