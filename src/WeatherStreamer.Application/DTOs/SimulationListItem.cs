@@ -11,4 +11,9 @@ public class SimulationListItem
     public DateTime StartTimeUtc { get; set; }
     public string FileName { get; set; } = string.Empty;
     public string Status { get; set; } = string.Empty;
+    /// <summary>
+    /// Base64-encoded concurrency token (rowversion) for optimistic concurrency.
+    /// Used to populate ETag headers in API responses.
+    /// </summary>
+    public string? ETag { get; set; }
 }

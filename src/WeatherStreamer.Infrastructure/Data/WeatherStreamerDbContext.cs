@@ -18,12 +18,18 @@ public class WeatherStreamerDbContext : DbContext
     /// Simulations table.
     /// </summary>
     public DbSet<Simulation> Simulations => Set<Simulation>();
+    
+    /// <summary>
+    /// Audit entries for changes to simulations.
+    /// </summary>
+    public DbSet<WeatherStreamer.Domain.Entities.AuditEntry> AuditEntries => Set<WeatherStreamer.Domain.Entities.AuditEntry>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
 
-        // Apply all configurations from the current assembly
+        // Apply configuration for Simulation and AuditEntry
         modelBuilder.ApplyConfiguration(new SimulationConfiguration());
+        modelBuilder.ApplyConfiguration(new Configurations.AuditEntryConfiguration());
     }
 }

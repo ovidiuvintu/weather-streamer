@@ -59,5 +59,10 @@ public class SimulationConfiguration : IEntityTypeConfiguration<Simulation>
             "CK_Simulations_Status",
             "Status IN ('NotStarted', 'InProgress', 'Completed')"
         ));
+
+        // Concurrency token configuration (rowversion/timestamp)
+        builder.Property(s => s.RowVersion)
+            .IsRowVersion()
+            .IsConcurrencyToken();
     }
 }

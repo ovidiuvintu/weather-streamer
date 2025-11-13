@@ -1,0 +1,100 @@
+openapi: 3.0.3
+info:
+  title: Weather Streamer Simulation Update API
+  version: 1.0.0
+paths:
+  /api/simulations/{id}:
+    patch:
+      summary: Partially update a simulation
+      description: Updates one or more mutable fields of a simulation resource using optimistic concurrency via ETag/If-Match.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: If-Match
+          in: header
+          required: true
+          description: Base64 rowversion token previously returned in ETag header.
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  maxLength: 70
+                startTime:
+                  type: string
+                  format: date-time
+                  description: Must be future if simulation not started; immutable after start.
+                dataSource:
+                  type: string
+                  description: Windows-style file path; validated only if changing and pre-start.
+                status:
+                  type: string
+                  enum: [Not Started, In Progress, Completed]
+              additionalProperties: false
+      responses:
+        '200':
+          description: Simulation updated successfully
+          headers:
+            ETag:
+              schema:
+                type: string
+              description: New concurrency token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Simulation'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Simulation not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Concurrency conflict or illegal transition
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+components:
+  schemas:
+    Simulation:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        startTime:
+          type: string
+          format: date-time
+        dataSource:
+          type: string
+        status:
+          type: string
+          enum: [Not Started, In Progress, Completed]
+      required: [id, name, startTime, dataSource, status]
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+        details:
+          type: array
+          items:
+            type: string
+      required: [error]

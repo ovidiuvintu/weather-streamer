@@ -65,6 +65,7 @@ public class SimulationReadService : ISimulationReadService
             Name = s.Name,
             StartTimeUtc = s.StartTime.Kind == DateTimeKind.Utc ? s.StartTime : s.StartTime.ToUniversalTime(),
             FileName = s.FileName,
-            Status = s.Status.ToString()
+            Status = s.Status.ToString(),
+            ETag = s.RowVersion is null ? null : Convert.ToBase64String(s.RowVersion)
         };
 }

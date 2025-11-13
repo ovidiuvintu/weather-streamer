@@ -3,6 +3,8 @@
 Auto-generated from all feature plans. Last updated: 2025-11-10
 
 ## Active Technologies
+- C# 12 / .NET 8.0 (ASP.NET Core Web API) + ASP.NET Core MVC, EF Core 8, FluentValidation, Swashbuckle (Swagger) (003-update-simulations)
+- SQLite in prod; InMemory provider for tests; EF Core entity with row version (ulong/byte[]) for concurrency (003-update-simulations)
 
 - C# 12 / .NET 8.0 (001-simulation-control)
 
@@ -23,6 +25,7 @@ tests/
 C# 12 / .NET 8.0: Follow standard conventions
 
 ## Recent Changes
+- 003-update-simulations: Added C# 12 / .NET 8.0 (ASP.NET Core Web API) + ASP.NET Core MVC, EF Core 8, FluentValidation, Swashbuckle (Swagger)
 
 - 001-simulation-control: Added C# 12 / .NET 8.0
 
