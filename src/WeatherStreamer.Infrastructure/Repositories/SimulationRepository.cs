@@ -3,6 +3,7 @@ using WeatherStreamer.Application.Repositories;
 using WeatherStreamer.Domain.Entities;
 using WeatherStreamer.Domain.Enums;
 using WeatherStreamer.Infrastructure.Data;
+using System.Security.Cryptography;
 
 namespace WeatherStreamer.Infrastructure.Repositories;
 
@@ -55,5 +56,43 @@ public class SimulationRepository : ISimulationRepository
         return await _context.Simulations
             .AnyAsync(s => s.FileName == filePath && s.Status == SimulationStatus.InProgress, 
                      cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public async Task<Simulation?> GetByIdTrackedAsync(int id, CancellationToken cancellationToken = default)
+    {
+        if (id <= 0) throw new ArgumentOutOfRangeException(nameof(id));
+        return await _context.Simulations.FirstOrDefaultAsync(s => s.Id == id, cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public async Task<Simulation> UpdateAsync(Simulation simulation, byte[] ifMatchRowVersion, CancellationToken cancellationToken = default)
+    {
+        if (simulation is null) throw new ArgumentNullException(nameof(simulation));
+        if (ifMatchRowVersion is null || ifMatchRowVersion.Length == 0) throw new ArgumentException("If-Match rowversion is required", nameof(ifMatchRowVersion));
+
+        try
+        {
+            // Set the original rowversion value for concurrency check
+            var entry = _context.Entry(simulation);
+            entry.Property(e => e.RowVersion).OriginalValue = ifMatchRowVersion;
+
+            // Generate a new rowversion token to simulate DB-generated timestamp across providers
+            // (InMemory/SQLite providers may not auto-generate rowversion values)
+            simulation.RowVersion = RandomNumberGenerator.GetBytes(8);
+
+            _context.Update(simulation);
+            await _context.SaveChangesAsync(cancellationToken);
+            return simulation;
+        }
+        catch (DbUpdateConcurrencyException ex)
+        {
+            // Map to a domain-agnostic concurrency signal for upper layers
+            throw new InvalidOperationException("Concurrency conflict detected while updating Simulation.", ex);
+        }
+        catch (DbUpdateException ex)
+        {
+            throw new InvalidOperationException("Failed to update simulation due to a database error.", ex);
+        }
     }
 }

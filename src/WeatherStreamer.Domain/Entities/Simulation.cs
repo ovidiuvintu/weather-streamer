@@ -1,4 +1,5 @@
 using WeatherStreamer.Domain.Enums;
+using System.ComponentModel.DataAnnotations;
 
 namespace WeatherStreamer.Domain.Entities;
 
@@ -31,4 +32,34 @@ public class Simulation
     /// Current execution status of the simulation.
     /// </summary>
     public SimulationStatus Status { get; set; }
+
+    /// <summary>
+    /// Concurrency token used for optimistic concurrency control.
+    /// Exposed as ETag in API responses.
+    /// </summary>
+    [Timestamp]
+    public byte[]? RowVersion { get; set; }
+
+    /// <summary>
+    /// Ensure that the provided candidate updates are allowed for the current simulation state.
+    /// Throws <see cref="InvalidOperationException"/> if the update attempts to change immutable fields
+    /// after the simulation has left the NotStarted state.
+    /// </summary>
+    /// <param name="newFileName">Candidate file name (null if not changing)</param>
+    /// <param name="newStartTimeUtc">Candidate start time in UTC (null if not changing)</param>
+    public void EnsureMutableForUpdate(string? newFileName, DateTime? newStartTimeUtc)
+    {
+        if (Status == Enums.SimulationStatus.NotStarted)
+            return;
+
+        if (newFileName is not null && !string.Equals(newFileName, FileName, StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException("Cannot change DataSource after the simulation has started.");
+        }
+
+        if (newStartTimeUtc.HasValue && newStartTimeUtc.Value != StartTime)
+        {
+            throw new InvalidOperationException("Cannot change StartTime after the simulation has started.");
+        }
+    }
 }

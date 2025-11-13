@@ -5,6 +5,7 @@ using WeatherStreamer.Api.Models;
 using WeatherStreamer.Application.DTOs;
 using WeatherStreamer.Application.Services;
 using WeatherStreamer.Application.Services.Simulations;
+using WeatherStreamer.Application.Services.Simulations.Update;
 
 namespace WeatherStreamer.Api.Controllers;
 
@@ -18,17 +19,20 @@ public class SimulationsController : ControllerBase
     private readonly ISimulationService _simulationService;
     private readonly ISimulationReadService _readService;
     private readonly IValidator<CreateSimulationRequest> _validator;
+    private readonly UpdateSimulationHandler _updateHandler;
     private readonly ILogger<SimulationsController> _logger;
 
     public SimulationsController(
         ISimulationService simulationService,
         ISimulationReadService readService,
         IValidator<CreateSimulationRequest> validator,
+        UpdateSimulationHandler updateHandler,
         ILogger<SimulationsController> logger)
     {
         _simulationService = simulationService ?? throw new ArgumentNullException(nameof(simulationService));
         _readService = readService ?? throw new ArgumentNullException(nameof(readService));
         _validator = validator ?? throw new ArgumentNullException(nameof(validator));
+        _updateHandler = updateHandler ?? throw new ArgumentNullException(nameof(updateHandler));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
@@ -48,6 +52,127 @@ public class SimulationsController : ControllerBase
         return Ok(dtos);
     }
 
+    /// <summary>
+    /// Partially updates a simulation using optimistic concurrency via If-Match header.
+    /// </summary>
+    [HttpPatch("{id:int}")]
+    [ProducesResponseType(typeof(SimulationDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> UpdateSimulation([FromRoute] int id, [FromBody] UpdateSimulationRequest request, CancellationToken cancellationToken)
+    {
+        if (id <= 0)
+        {
+            return BadRequest(new ErrorResponse
+            {
+                CorrelationId = Response.Headers["X-Correlation-ID"].ToString(),
+                Timestamp = DateTime.UtcNow,
+                StatusCode = StatusCodes.Status400BadRequest,
+                Error = "Invalid id",
+                Details = new Dictionary<string, List<string>>
+                {
+                    { "id", new List<string> { "Id must be a positive integer." } }
+                }
+            });
+        }
+
+        var ifMatch = Request.Headers["If-Match"].ToString();
+        if (string.IsNullOrWhiteSpace(ifMatch))
+        {
+            return BadRequest(new ErrorResponse
+            {
+                CorrelationId = Response.Headers["X-Correlation-ID"].ToString(),
+                Timestamp = DateTime.UtcNow,
+                StatusCode = StatusCodes.Status400BadRequest,
+                Error = "Missing If-Match header",
+                Details = new Dictionary<string, List<string>>
+                {
+                    { "If-Match", new List<string> { "The If-Match header is required for concurrency control." } }
+                }
+            });
+        }
+
+            try
+            {
+                // Ensure a correlation id is present for tracing
+                var correlationId = Request.Headers["X-Correlation-ID"].ToString();
+                if (string.IsNullOrWhiteSpace(correlationId))
+                {
+                    correlationId = Guid.NewGuid().ToString();
+                    Response.Headers["X-Correlation-ID"] = correlationId;
+                }
+
+                // Actor: prefer authenticated user name, otherwise anonymous
+                var actor = HttpContext?.User?.Identity?.Name;
+                if (string.IsNullOrWhiteSpace(actor)) actor = "anonymous";
+
+                var cmd = new UpdateSimulationCommand
+                {
+                    Id = id,
+                    Name = request.Name,
+                    StartTime = request.StartTime,
+                    DataSource = request.DataSource,
+                    Status = request.Status,
+                    IfMatch = ifMatch,
+                    Actor = actor,
+                    CorrelationId = correlationId
+                };
+
+            var updated = await _updateHandler.HandleAsync(cmd, cancellationToken);
+            if (updated is null)
+            {
+                return NotFound(new ErrorResponse
+                {
+                    CorrelationId = Response.Headers["X-Correlation-ID"].ToString(),
+                    Timestamp = DateTime.UtcNow,
+                    StatusCode = StatusCodes.Status404NotFound,
+                    Error = "Not Found",
+                    Details = new Dictionary<string, List<string>>
+                    {
+                        { "id", new List<string> { $"Simulation with id {id} was not found." } }
+                    }
+                });
+            }
+
+            if (!string.IsNullOrEmpty(updated.ETag))
+            {
+                // Wrap ETag in quotes per RFC (many clients expect quoted value)
+                Response.Headers.ETag = '"' + updated.ETag + '"';
+            }
+
+            var dto = MapToApiDto(updated);
+            return Ok(dto);
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new ErrorResponse
+            {
+                CorrelationId = Response.Headers["X-Correlation-ID"].ToString(),
+                Timestamp = DateTime.UtcNow,
+                StatusCode = StatusCodes.Status400BadRequest,
+                Error = "Validation failed",
+                Details = new Dictionary<string, List<string>>
+                {
+                    { ex.ParamName ?? "payload", new List<string> { ex.Message } }
+                }
+            });
+        }
+        catch (InvalidOperationException ex) when (ex.Message.StartsWith("Concurrency conflict", StringComparison.OrdinalIgnoreCase))
+        {
+            return Conflict(new ErrorResponse
+            {
+                CorrelationId = Response.Headers["X-Correlation-ID"].ToString(),
+                Timestamp = DateTime.UtcNow,
+                StatusCode = StatusCodes.Status409Conflict,
+                Error = "Concurrency conflict",
+                Details = new Dictionary<string, List<string>>
+                {
+                    { "If-Match", new List<string> { "The provided version does not match the current resource version." } }
+                }
+            });
+        }
+    }
     /// <summary>
     /// Retrieves simulations with StartTime greater than or equal to the provided UTC boundary.
     /// </summary>
@@ -143,6 +268,10 @@ public class SimulationsController : ControllerBase
         }
 
         _logger.LogInformation("GET /api/simulations/{Id} returned in {Ms} ms", id, (DateTime.UtcNow - start).TotalMilliseconds);
+        if (!string.IsNullOrEmpty(item.ETag))
+        {
+            Response.Headers.ETag = item.ETag;
+        }
         return Ok(MapToApiDto(item));
     }
 

@@ -22,4 +22,18 @@ public interface ISimulationRepository
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>True if file is in use, false otherwise.</returns>
     Task<bool> IsFileInUseAsync(string filePath, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Retrieves a simulation by id for update (tracked by DbContext).
+    /// Returns null if not found.
+    /// </summary>
+    Task<Simulation?> GetByIdTrackedAsync(int id, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Updates a simulation with optimistic concurrency using rowversion.
+    /// The <paramref name="ifMatchRowVersion"/> must match the current rowversion of the entity.
+    /// On success, the entity's RowVersion will be refreshed to a new value.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">Thrown when a concurrency conflict occurs.</exception>
+    Task<Simulation> UpdateAsync(Simulation simulation, byte[] ifMatchRowVersion, CancellationToken cancellationToken = default);
 }
