@@ -76,7 +76,15 @@ public class UpdateSimulationHandler
         }
         catch (InvalidOperationException ex)
         {
-            // Surface domain rule violations as 400 Bad Request
+            // Preserve 'Illegal status transition' exceptions so the API controller
+            // can map them to a structured 400 with a 'status' detail. Other domain
+            // rule violations (e.g. immutable field changes) should surface as
+            // ArgumentException so the controller maps them under 'payload'.
+            if (ex.Message.StartsWith("Illegal status transition", StringComparison.OrdinalIgnoreCase))
+            {
+                throw;
+            }
+
             throw new ArgumentException(ex.Message, ex);
         }
 

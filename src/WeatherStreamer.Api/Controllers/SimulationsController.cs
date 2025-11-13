@@ -181,6 +181,20 @@ public class SimulationsController : ControllerBase
                 Details = details
             });
         }
+        catch (InvalidOperationException ex) when (ex.Message.StartsWith("Illegal status transition", StringComparison.OrdinalIgnoreCase))
+        {
+            return BadRequest(new ErrorResponse
+            {
+                CorrelationId = Response.Headers["X-Correlation-ID"].ToString(),
+                Timestamp = DateTime.UtcNow,
+                StatusCode = StatusCodes.Status400BadRequest,
+                Error = "Illegal status transition",
+                Details = new Dictionary<string, List<string>>
+                {
+                    { "status", new List<string> { ex.Message } }
+                }
+            });
+        }
     }
     /// <summary>
     /// Retrieves simulations with StartTime greater than or equal to the provided UTC boundary.
@@ -279,7 +293,8 @@ public class SimulationsController : ControllerBase
         _logger.LogInformation("GET /api/simulations/{Id} returned in {Ms} ms", id, (DateTime.UtcNow - start).TotalMilliseconds);
         if (!string.IsNullOrEmpty(item.ETag))
         {
-            Response.Headers.ETag = item.ETag;
+            // Ensure ETag is returned in quoted form so clients and test helpers parse it correctly.
+            Response.Headers.ETag = '"' + item.ETag + '"';
         }
         return Ok(MapToApiDto(item));
     }

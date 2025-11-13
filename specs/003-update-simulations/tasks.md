@@ -54,8 +54,8 @@ Checkpoint: PATCH endpoint functional with concurrency and basic rules
 Goal: Only allow NotStarted → InProgress → Completed
 Independent Test: Illegal transitions rejected with clear error
 
-### Tests (write first)
-- [ ] T040 [US2] Unit: Transition matrix tests in domain/service layer
+- ### Tests (write first)
+- [x] T040 [US2] Unit: Transition matrix tests in domain/service layer
 - [ ] T041 [US2] Integration: PATCH NotStarted→Completed returns 409/400 with message
 
 ### Implementation
