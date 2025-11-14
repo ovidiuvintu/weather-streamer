@@ -80,7 +80,13 @@ public class SimulationsController : ControllerBase
             });
         }
 
-        var ifMatch = UnwrapEntityTag(Request.Headers["If-Match"].ToString());
+        var rawHeader = Request.Headers["If-Match"].ToString();
+        // Development-only diagnostics: log the incoming If-Match header to help debug missing headers
+        if (Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT")?.Equals("Development", StringComparison.OrdinalIgnoreCase) == true)
+        {
+            _logger.LogInformation("Incoming If-Match header (raw): {IfMatch}", string.IsNullOrEmpty(rawHeader) ? "<empty>" : rawHeader);
+        }
+        var ifMatch = UnwrapEntityTag(rawHeader);
         if (string.IsNullOrWhiteSpace(ifMatch))
         {
             return BadRequest(new ErrorResponse
