@@ -41,6 +41,12 @@ public class Simulation
     public byte[]? RowVersion { get; set; }
 
     /// <summary>
+    /// Soft-delete flag. When true the simulation is considered deleted and should
+    /// not be returned by normal read queries.
+    /// </summary>
+    public bool IsDeleted { get; set; }
+
+    /// <summary>
     /// Ensure that the provided candidate updates are allowed for the current simulation state.
     /// Throws <see cref="InvalidOperationException"/> if the update attempts to change immutable fields
     /// after the simulation has left the NotStarted state.

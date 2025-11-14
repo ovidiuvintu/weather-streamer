@@ -36,4 +36,11 @@ public interface ISimulationRepository
     /// </summary>
     /// <exception cref="InvalidOperationException">Thrown when a concurrency conflict occurs.</exception>
     Task<Simulation> UpdateAsync(Simulation simulation, byte[] ifMatchRowVersion, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Soft-delete a simulation by id using optimistic concurrency via rowversion.
+    /// Returns true when deletion applied; false if the entity was not found.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">Thrown when a concurrency conflict occurs.</exception>
+    Task<bool> SoftDeleteAsync(int id, byte[] ifMatchRowVersion, CancellationToken cancellationToken = default);
 }

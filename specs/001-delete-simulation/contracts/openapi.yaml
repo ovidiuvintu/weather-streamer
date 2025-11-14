@@ -1,0 +1,52 @@
+openapi: 3.0.3
+info:
+  title: WeatherStreamer API - Delete Simulation
+  version: 1.0.0
+paths:
+  /api/simulations/{id}:
+    delete:
+      summary: Delete a simulation (soft-delete)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: If-Match
+          in: header
+          required: true
+          schema:
+            type: string
+          description: Base64-encoded RowVersion ETag
+      responses:
+        '204':
+          description: No Content - deleted (soft-delete)
+        '400':
+          description: Bad Request - validation or domain error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Not Found
+        '409':
+          description: Conflict - concurrency
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+components:
+  schemas:
+    ErrorResponse:
+      type: object
+      properties:
+        correlationId:
+          type: string
+        timestamp:
+          type: string
+        statusCode:
+          type: integer
+        error:
+          type: string
+        details:
+          type: object

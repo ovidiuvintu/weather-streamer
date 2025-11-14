@@ -26,10 +26,10 @@ public class WeatherStreamerDbContext : DbContext
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        base.OnModelCreating(modelBuilder);
-
         // Apply configuration for Simulation and AuditEntry
         modelBuilder.ApplyConfiguration(new SimulationConfiguration());
         modelBuilder.ApplyConfiguration(new Configurations.AuditEntryConfiguration());
+
+        base.OnModelCreating(modelBuilder);
     }
 }

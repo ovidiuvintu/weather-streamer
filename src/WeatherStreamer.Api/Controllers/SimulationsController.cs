@@ -6,6 +6,7 @@ using WeatherStreamer.Application.DTOs;
 using WeatherStreamer.Application.Services;
 using WeatherStreamer.Application.Services.Simulations;
 using WeatherStreamer.Application.Services.Simulations.Update;
+using WeatherStreamer.Application.Services.Simulations.Delete;
 
 namespace WeatherStreamer.Api.Controllers;
 
@@ -20,6 +21,7 @@ public class SimulationsController : ControllerBase
     private readonly ISimulationReadService _readService;
     private readonly IValidator<CreateSimulationRequest> _validator;
     private readonly UpdateSimulationHandler _updateHandler;
+    private readonly DeleteSimulationHandler _deleteHandler;
     private readonly ILogger<SimulationsController> _logger;
 
     public SimulationsController(
@@ -27,12 +29,14 @@ public class SimulationsController : ControllerBase
         ISimulationReadService readService,
         IValidator<CreateSimulationRequest> validator,
         UpdateSimulationHandler updateHandler,
+        DeleteSimulationHandler deleteHandler,
         ILogger<SimulationsController> logger)
     {
         _simulationService = simulationService ?? throw new ArgumentNullException(nameof(simulationService));
         _readService = readService ?? throw new ArgumentNullException(nameof(readService));
         _validator = validator ?? throw new ArgumentNullException(nameof(validator));
         _updateHandler = updateHandler ?? throw new ArgumentNullException(nameof(updateHandler));
+        _deleteHandler = deleteHandler ?? throw new ArgumentNullException(nameof(deleteHandler));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
@@ -50,6 +54,122 @@ public class SimulationsController : ControllerBase
         var dtos = items.Select(MapToApiDto).ToList();
         _logger.LogInformation("GET /api/simulations returned {Count} items in {Ms} ms", dtos.Count, (DateTime.UtcNow - start).TotalMilliseconds);
         return Ok(dtos);
+    }
+    /// <summary>
+    /// Soft-deletes a simulation using optimistic concurrency via If-Match header.
+    /// </summary>
+    [HttpDelete("{id:int}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> DeleteSimulation([FromRoute] int id, CancellationToken cancellationToken)
+    {
+        if (id <= 0)
+        {
+            return BadRequest(new ErrorResponse
+            {
+                CorrelationId = Response.Headers["X-Correlation-ID"].ToString(),
+                Timestamp = DateTime.UtcNow,
+                StatusCode = StatusCodes.Status400BadRequest,
+                Error = "Invalid id",
+                Details = new Dictionary<string, List<string>>
+                {
+                    { "id", new List<string> { "Id must be a positive integer." } }
+                }
+            });
+        }
+
+        var ifMatch = Request.Headers["If-Match"].ToString();
+        if (string.IsNullOrWhiteSpace(ifMatch))
+        {
+            return BadRequest(new ErrorResponse
+            {
+                CorrelationId = Response.Headers["X-Correlation-ID"].ToString(),
+                Timestamp = DateTime.UtcNow,
+                StatusCode = StatusCodes.Status400BadRequest,
+                Error = "Missing If-Match header",
+                Details = new Dictionary<string, List<string>>
+                {
+                    { "If-Match", new List<string> { "The If-Match header is required for concurrency control." } }
+                }
+            });
+        }
+
+        try
+        {
+            var correlationId = Request.Headers["X-Correlation-ID"].ToString();
+            if (string.IsNullOrWhiteSpace(correlationId))
+            {
+                correlationId = Guid.NewGuid().ToString();
+                Response.Headers["X-Correlation-ID"] = correlationId;
+            }
+
+            var actor = HttpContext?.User?.Identity?.Name;
+            if (string.IsNullOrWhiteSpace(actor)) actor = "anonymous";
+
+            var cmd = new DeleteSimulationCommand
+            {
+                Id = id,
+                IfMatch = ifMatch,
+                Actor = actor,
+                CorrelationId = correlationId
+            };
+
+            var deleted = await _deleteHandler.HandleAsync(cmd, cancellationToken);
+            if (!deleted)
+            {
+                return NotFound(new ErrorResponse
+                {
+                    CorrelationId = Response.Headers["X-Correlation-ID"].ToString(),
+                    Timestamp = DateTime.UtcNow,
+                    StatusCode = StatusCodes.Status404NotFound,
+                    Error = "Not Found",
+                    Details = new Dictionary<string, List<string>>
+                    {
+                        { "id", new List<string> { $"Simulation with id {id} was not found." } }
+                    }
+                });
+            }
+
+            return NoContent();
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new ErrorResponse
+            {
+                CorrelationId = Response.Headers["X-Correlation-ID"].ToString(),
+                Timestamp = DateTime.UtcNow,
+                StatusCode = StatusCodes.Status400BadRequest,
+                Error = "Validation failed",
+                Details = new Dictionary<string, List<string>>
+                {
+                    { ex.ParamName ?? "payload", new List<string> { ex.Message } }
+                }
+            });
+        }
+        catch (InvalidOperationException ex) when (ex.Message.StartsWith("Concurrency conflict", StringComparison.OrdinalIgnoreCase))
+        {
+            var current = await _readService.GetByIdAsync(id, cancellationToken: cancellationToken);
+            var currentVersion = current?.ETag;
+            var details = new Dictionary<string, List<string>>
+            {
+                { "If-Match", new List<string> { "The provided version does not match the current resource version." } }
+            };
+            if (!string.IsNullOrEmpty(currentVersion))
+            {
+                details.Add("currentVersion", new List<string> { currentVersion });
+            }
+
+            return Conflict(new ErrorResponse
+            {
+                CorrelationId = Response.Headers["X-Correlation-ID"].ToString(),
+                Timestamp = DateTime.UtcNow,
+                StatusCode = StatusCodes.Status409Conflict,
+                Error = "Concurrency conflict",
+                Details = details
+            });
+        }
     }
 
     /// <summary>

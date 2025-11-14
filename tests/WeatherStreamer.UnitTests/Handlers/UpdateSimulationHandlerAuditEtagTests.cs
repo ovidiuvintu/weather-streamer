@@ -110,5 +110,9 @@ public class UpdateSimulationHandlerAuditEtagTests
         public Task<int> AddAsync(Simulation entity, CancellationToken cancellationToken = default) => throw new NotImplementedException();
         public Task<bool> DeleteAsync(int id, CancellationToken cancellationToken = default) => throw new NotImplementedException();
         public Task<Simulation?> GetByIdAsync(int id, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task<bool> SoftDeleteAsync(int id, byte[] ifMatchRowVersion, CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult(false);
+        }
     }
 }

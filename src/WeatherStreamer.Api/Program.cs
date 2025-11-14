@@ -10,6 +10,7 @@ using WeatherStreamer.Infrastructure.Data;
 using WeatherStreamer.Infrastructure.Repositories;
 using WeatherStreamer.Infrastructure.Services;
 using WeatherStreamer.Application.Services.Simulations.Update;
+using WeatherStreamer.Application.Services.Simulations.Delete;
 
 // Configure Serilog
 Log.Logger = new LoggerConfiguration()
@@ -71,6 +72,7 @@ try
     builder.Services.AddScoped<ISimulationReadService, SimulationReadService>();
     builder.Services.AddScoped<IFileValidationService, FileValidationService>();
     builder.Services.AddScoped<UpdateSimulationHandler>();
+    builder.Services.AddScoped<DeleteSimulationHandler>();
 
     // Add FluentValidation
     builder.Services.AddValidatorsFromAssembly(typeof(WeatherStreamer.Application.Validators.CreateSimulationRequestValidator).Assembly);

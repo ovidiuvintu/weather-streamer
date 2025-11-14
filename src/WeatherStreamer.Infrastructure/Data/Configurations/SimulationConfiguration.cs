@@ -64,5 +64,13 @@ public class SimulationConfiguration : IEntityTypeConfiguration<Simulation>
         builder.Property(s => s.RowVersion)
             .IsRowVersion()
             .IsConcurrencyToken();
+
+        // Soft-delete flag
+        builder.Property(s => s.IsDeleted)
+            .IsRequired()
+            .HasDefaultValue(false);
+
+        // Optional global query filter to hide soft-deleted rows from normal queries
+        builder.HasQueryFilter(s => !s.IsDeleted);
     }
 }

@@ -13,6 +13,8 @@ Format: `[ID] [P?] [Story] Description`
 
 - [ ] T001 Verify solution builds and tests run locally (no code changes)
 - [ ] T002 Ensure .gitignore includes obj/, bin/, logs/ for .NET projects
+ - [x] T001 Verify solution builds and tests run locally (no code changes)
+ - [x] T002 Ensure .gitignore includes obj/, bin/, logs/ for .NET projects
 
 ---
 
@@ -20,6 +22,7 @@ Format: `[ID] [P?] [Story] Description`
 
 - [x] T010 Add concurrency token to entity: add `RowVersion` byte[] with `[Timestamp]` in `src/WeatherStreamer.Domain/Entities/Simulation.cs`; configure as concurrency token in `src/WeatherStreamer.Infrastructure/Data/Configurations/SimulationConfiguration.cs`
 - [ ] T011 Create EF migration `AddSimulationRowVersion` and update local dev DB
+ - [x] T011 Create EF migration `AddSimulationRowVersion` and update local dev DB
 - [x] T012 [P] Expose ETag on read responses: add ETag header to GET `/api/simulations/{id}` using base64(rowversion)
 - [x] T013 [P] Wire rowversion mapping in repository/service DTOs so reads include ETag value (if applicable)
 
@@ -57,10 +60,11 @@ Independent Test: Illegal transitions rejected with clear error
 - ### Tests (write first)
 - [x] T040 [US2] Unit: Transition matrix tests in domain/service layer
 - [ ] T041 [US2] Integration: PATCH NotStarted→Completed returns 409/400 with message
+ - [x] T041 [US2] Integration: PATCH NotStarted→Completed returns 409/400 with message
 
 ### Implementation
-- [ ] T045 [US2] Domain/Application: Implement transition checks centrally (service or domain method)
-- [ ] T046 [US2] API: Map illegal transitions to consistent error response
+- [x] T045 [US2] Domain/Application: Implement transition checks centrally (service or domain method)
+- [x] T046 [US2] API: Map illegal transitions to consistent error response
 
 Checkpoint: Status transitions enforced end-to-end
 
@@ -75,10 +79,15 @@ Independent Test: Invalid updates rejected; no data mutation
 - [ ] T050 [US3] Unit: Name length >70 rejected
 - [ ] T051 [US3] Unit: DataSource invalid path chars rejected
 - [ ] T052 [US3] Integration: DataSource change when file missing returns 404
+ - [x] T050 [US3] Unit: Name length >70 rejected
+ - [x] T051 [US3] Unit: DataSource invalid path chars rejected
+ - [x] T052 [US3] Integration: DataSource change when file missing returns 404
 
 ### Implementation
 - [ ] T055 [US3] Validation: Extend `UpdateSimulationValidator` with conditional DataSource rules (only if changed and status NotStarted)
 - [ ] T056 [US3] File checks: Reuse existing file validation services; add lock detection if available
+ - [x] T055 [US3] Validation: Extend `UpdateSimulationValidator` with conditional DataSource rules (only if changed and status NotStarted)
+ - [x] T056 [US3] File checks: Reuse existing file validation services; add lock detection if available
 
 Checkpoint: Validation parity achieved
 
@@ -90,6 +99,10 @@ Checkpoint: Validation parity achieved
 - [ ] T061 Docs: Update quickstart.md validation steps executed
 - [ ] T062 Logging: Verify structured logs include correlationId and audit fields
 - [ ] T063 Cleanup: Code comments, XML docs for public APIs
+ - [x] T060 Swagger: Document PATCH with If-Match and ETag; align with `contracts/openapi.update-simulations.yaml`
+ - [x] T061 Docs: Update quickstart.md validation steps executed
+ - [x] T062 Logging: Verify structured logs include correlationId and audit fields
+ - [x] T063 Cleanup: Code comments, XML docs for public APIs
 
 ---
 

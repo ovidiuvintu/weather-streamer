@@ -41,4 +41,9 @@ public class AuditEntry
     /// New ETag (base64) after the change.
     /// </summary>
     public string? NewETag { get; set; }
+
+    /// <summary>
+    /// Optional action performed (e.g., Create, Update, Delete).
+    /// </summary>
+    public string? Action { get; set; }
 }
