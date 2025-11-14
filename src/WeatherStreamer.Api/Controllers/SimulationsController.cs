@@ -80,7 +80,7 @@ public class SimulationsController : ControllerBase
             });
         }
 
-        var ifMatch = Request.Headers["If-Match"].ToString();
+        var ifMatch = UnwrapEntityTag(Request.Headers["If-Match"].ToString());
         if (string.IsNullOrWhiteSpace(ifMatch))
         {
             return BadRequest(new ErrorResponse
@@ -197,7 +197,7 @@ public class SimulationsController : ControllerBase
             });
         }
 
-        var ifMatch = Request.Headers["If-Match"].ToString();
+        var ifMatch = UnwrapEntityTag(Request.Headers["If-Match"].ToString());
         if (string.IsNullOrWhiteSpace(ifMatch))
         {
             return BadRequest(new ErrorResponse
@@ -315,6 +315,23 @@ public class SimulationsController : ControllerBase
                 }
             });
         }
+        }
+
+    // Normalize ETag/If-Match header value so handlers receive a raw base64 token.
+    // Accepts forms like: "base64==", base64==, W/"base64==", W/base64==
+    private static string UnwrapEntityTag(string? raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw)) return string.Empty;
+        var v = raw.Trim();
+        if (v.StartsWith("W/", StringComparison.OrdinalIgnoreCase))
+        {
+            v = v.Substring(2);
+        }
+        if (v.Length >= 2 && v.StartsWith("\"") && v.EndsWith("\""))
+        {
+            v = v.Substring(1, v.Length - 2);
+        }
+        return v;
     }
     /// <summary>
     /// Retrieves simulations with StartTime greater than or equal to the provided UTC boundary.
@@ -492,6 +509,21 @@ public class SimulationsController : ControllerBase
 
             // Add Location header to canonical resource URL
             var location = $"/api/simulations/{simulationId}";
+
+            // Attempt to include the ETag of the newly-created resource if available
+            try
+            {
+                var createdItem = await _readService.GetByIdAsync(simulationId, cancellationToken: cancellationToken);
+                if (!string.IsNullOrEmpty(createdItem?.ETag))
+                {
+                    Response.Headers.ETag = '"' + createdItem.ETag + '"';
+                }
+            }
+            catch
+            {
+                // Swallow any errors retrieving the created resource; return Created regardless
+            }
+
             return Created(location, response);
         }
         catch (FileNotFoundException ex)
