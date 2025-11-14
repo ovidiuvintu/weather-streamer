@@ -22,6 +22,20 @@ Behavior
 - If `If-Match` does not match current RowVersion: respond `409 Conflict` with details `{ "If-Match": ["The provided version is stale."], "currentVersion": "<base64-current>" }`.
 - If deletion violates domain rules (e.g., cannot delete a `Running` or `Completed` simulation): respond `400 Bad Request` with details keyed by the failing property (e.g., `{ "status": ["Cannot delete a Running simulation."] }`).
 
+## Clarifications
+### Session 2025-11-13
+- Q: Delete behavior — hard vs soft? → A: Soft delete (mark `IsDeleted` flag on the Simulation row)
+
+Behavior (updated)
+- Deletions use a soft-delete strategy: the API will mark the Simulation's `IsDeleted` flag (or `Deleted` timestamp) and keep the row in the primary table. The row is retained for audit, recovery, and reporting. API listing/get operations treat soft-deleted resources as not found (404) by default.
+- Requires the `If-Match` header set to the resource ETag (base64-encoded RowVersion) to enforce optimistic concurrency.
+- Success response: `204 No Content`.
+- On successful deletion, persist an `AuditEntry` with fields: `SimulationId`, `Actor`, `CorrelationId`, `TimestampUtc`, `Action: "Delete"`, `ChangesJson` (previous resource snapshot), `PrevEtag`.
+- If `If-Match` header is missing: respond `400 Bad Request` with structured details: `{ "If-Match": ["The If-Match header is required for concurrency control."] }`.
+- If the resource does not exist: respond `404 Not Found`.
+- If `If-Match` does not match current RowVersion: respond `409 Conflict` with details `{ "If-Match": ["The provided version is stale."], "currentVersion": "<base64-current>" }`.
+- If deletion violates domain rules (e.g., cannot delete a `Running` or `Completed` simulation): respond `400 Bad Request` with details keyed by the failing property (e.g., `{ "status": ["Cannot delete a Running simulation."] }`).
+
 Security & Authorization
 - Requires authentication; the actor performing the delete must be recorded in `AuditEntry.Actor`.
 - Authorization rule: only the Simulation owner or users with `Simulation.Delete` permission may delete.
@@ -44,6 +58,8 @@ Functional Requirements (testable)
 5. Repository performs a concurrency-protected delete (EF Core concurrency token or equivalent). If concurrency conflict occurs, the handler throws a concurrency exception mapped to 409 and includes current version in response details.
 6. Domain rules prevent deletion of simulations in disallowed states (`Running`, `Completed`); these violations map to 400 with details keyed by `status`.
 7. On success, persist an `AuditEntry` describing the deletion (previous state + PrevEtag) and return 204.
+9. Repository must implement soft-delete semantics: update the Simulation's `IsDeleted` flag (or `DeletedAt` timestamp) instead of physically removing the row. Queries used by public APIs must exclude soft-deleted rows by default.
+10. Integration tests should verify that soft-delete leaves the Simulation row present with `IsDeleted=true` and that `AuditEntry` references the deleted Simulation.
 8. Unit tests exist to validate domain rule rejection and repository concurrency failure mapping. Integration tests cover controller → handler → repository → audit persistence flow.
 
 Success Criteria
@@ -56,13 +72,19 @@ Key Entities
 - Simulation: { Id, Name, StartTime, FileName, Status, RowVersion }
 - AuditEntry: { Id, SimulationId, Actor, CorrelationId, TimestampUtc, Action, ChangesJson, PrevEtag }
 
+Updated Entities
+- Simulation: { Id, Name, StartTime, FileName, Status, RowVersion, IsDeleted }
+- AuditEntry: { Id, SimulationId, Actor, CorrelationId, TimestampUtc, Action, ChangesJson, PrevEtag }
+
 Assumptions
 - ETag is base64(RowVersion) and existing encode/decode helpers are reused.
 - Authorization is enforced by an existing middleware or attribute; the handler will still validate ownership/permission and return 403 if unauthorized (outside of this spec's acceptance tests, which focus on behavior when authorized).
 - CorrelationId is available from request context and is included in created `AuditEntry`.
+- Soft-delete approach is acceptable for this project and preserves rows for audit and recovery; downstream storage and reporting consumers will be adjusted to ignore `IsDeleted` rows by default.
 
 Acceptance Tests (high level)
 - DELETE valid: create simulation (Draft) → GET ETag → DELETE with If-Match → expect 204 and an AuditEntry present with PrevEtag matching provided ETag.
+- DELETE valid (soft-delete): create simulation (Draft) → GET ETag → DELETE with If-Match → expect 204; the Simulation row remains in DB with `IsDeleted=true`; an `AuditEntry` is persisted referencing the Simulation and PrevEtag.
 - Missing If-Match: DELETE without If-Match → 400 and details include `If-Match`.
 - Stale version: after updating simulation to change RowVersion, previous ETag used in DELETE → 409 and details include `currentVersion`.
 - Illegal state: create simulation in `Running` → DELETE with correct If-Match → 400 with details.status.
