@@ -60,10 +60,12 @@ public class SimulationConfiguration : IEntityTypeConfiguration<Simulation>
             "Status IN ('NotStarted', 'InProgress', 'Completed')"
         ));
 
-        // Concurrency token configuration (rowversion/timestamp)
+        // Concurrency token configuration. Avoid configuring RowVersion as a
+        // store-generated value so providers that don't auto-generate rowversion
+        // (SQLite/InMemory) will persist client-assigned tokens.
         builder.Property(s => s.RowVersion)
-            .IsRowVersion()
-            .IsConcurrencyToken();
+            .IsConcurrencyToken()
+            .ValueGeneratedNever();
 
         // Soft-delete flag
         builder.Property(s => s.IsDeleted)

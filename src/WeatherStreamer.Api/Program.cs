@@ -108,6 +108,30 @@ try
 
     var app = builder.Build();
 
+    // Development helper: ensure existing rows have a RowVersion so ETag can be returned
+    if (app.Environment.IsDevelopment())
+    {
+        try
+        {
+            using var scope = app.Services.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<WeatherStreamer.Infrastructure.Data.WeatherStreamerDbContext>();
+            // Find simulations missing RowVersion and assign a synthetic token
+            var missing = db.Simulations.Where(s => s.RowVersion == null).ToList();
+            if (missing.Count > 0)
+            {
+                foreach (var s in missing)
+                {
+                    s.RowVersion = System.Security.Cryptography.RandomNumberGenerator.GetBytes(8);
+                    db.Simulations.Update(s);
+                }
+                db.SaveChanges();
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "Failed to backfill RowVersion values on startup");
+        }
+    }
     // Configure middleware pipeline
     app.UseMiddleware<CorrelationIdMiddleware>();
     app.UseMiddleware<GlobalExceptionMiddleware>();
@@ -116,10 +140,15 @@ try
     if (app.Environment.IsDevelopment())
     {
         app.UseSwagger();
+        // Serve static files so we can inject a small JS helper into Swagger UI
+        app.UseStaticFiles();
         app.UseSwaggerUI(c =>
         {
             c.SwaggerEndpoint("/swagger/v1/swagger.json", "Weather Streamer API v1");
             c.RoutePrefix = "swagger";
+            // Inject a small script that auto-populates If-Match for DELETE requests
+            // by performing a GET for the same resource and copying the ETag header.
+            c.InjectJavascript("/swagger-ui/ifmatch-prefill.js");
         });
     }
 
