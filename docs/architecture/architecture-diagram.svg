@@ -1,0 +1,122 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="760" viewBox="0 0 1200 760">
+  <style>
+    .box { fill: #F7F9FB; stroke: #2B6CB0; stroke-width:2; rx:8; }
+    .title { font: 700 18px/1.2 'Segoe UI', Roboto, Arial; fill: #0B2447; }
+    .label { font: 14px/1.2 'Segoe UI', Roboto, Arial; fill: #0B2447; }
+    .small { font: 12px/1.2 'Segoe UI', Roboto, Arial; fill: #1F3A5F; }
+    .arrow { stroke: #2B6CB0; stroke-width:2; fill: none; marker-end: url(#arrowhead); }
+    .groupTitle { font: 600 16px/1.2 'Segoe UI', Roboto, Arial; fill: #1F4E79; }
+  </style>
+
+  <defs>
+    <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#2B6CB0" />
+    </marker>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#000" flood-opacity="0.12"/>
+    </filter>
+  </defs>
+
+  <!-- Title -->
+  <text x="24" y="36" class="title">Weather Streamer — High-level Architecture</text>
+  <text x="24" y="60" class="small">Depicts API, application services, infrastructure, DB, dev UX (Swagger) and test flows (ETag / If-Match)</text>
+
+  <!-- Left: Client / Dev UX -->
+  <g>
+    <rect x="24" y="92" width="220" height="120" class="box" filter="url(#shadow)"/>
+    <text x="36" y="116" class="groupTitle">Clients &amp; Dev UX</text>
+    <text x="36" y="140" class="label">- Swagger UI (ifmatch-prefill.js)</text>
+    <text x="36" y="160" class="label">- CLI / scripts (run_patch_flow.ps1)</text>
+    <text x="36" y="180" class="label">- curl / clients (If-Match header)</text>
+  </g>
+
+  <!-- Center: API -->
+  <g>
+    <rect x="280" y="72" width="640" height="220" class="box" filter="url(#shadow)"/>
+    <text x="292" y="96" class="groupTitle">API (ASP.NET Core)</text>
+
+    <!-- Controllers -->
+    <rect x="300" y="116" width="220" height="60" rx="6" fill="#FFFFFF" stroke="#1765A3" stroke-width="1.5"/>
+    <text x="314" y="140" class="label">Controllers</text>
+    <text x="314" y="156" class="small">SimulationsController (ETag Normalize)</text>
+
+    <!-- Application layer -->
+    <rect x="540" y="116" width="340" height="60" rx="6" fill="#FFFFFF" stroke="#1765A3" stroke-width="1.5"/>
+    <text x="554" y="140" class="label">Application / Services</text>
+    <text x="554" y="156" class="small">Handlers: Create / Update / Delete (If-Match passed)</text>
+
+    <!-- ETag / If-Match note -->
+    <text x="304" y="196" class="small">Controller normalizes If-Match (unwrap quotes / W/)</text>
+    <text x="554" y="212" class="small">Handlers validate If-Match and call repository for optimistic concurrency</text>
+  </g>
+
+  <!-- Right: Infrastructure -->
+  <g>
+    <rect x="960" y="92" width="220" height="240" class="box" filter="url(#shadow)"/>
+    <text x="972" y="116" class="groupTitle">Infrastructure</text>
+    <text x="972" y="140" class="label">- EF Core (SQLite / InMemory)</text>
+    <text x="972" y="160" class="label">- Repositories (SimulationRepository)</text>
+    <text x="972" y="180" class="label">- AuditEntries persistence</text>
+    <text x="972" y="200" class="label">- RowVersion persistence / ValueGeneratedNever()</text>
+    <text x="972" y="220" class="small">(synthesizes RowVersion when provider doesn't auto-generate)</text>
+  </g>
+
+  <!-- DB -->
+  <g>
+    <rect x="420" y="320" width="350" height="120" class="box" filter="url(#shadow)"/>
+    <text x="436" y="344" class="groupTitle">Database / Storage</text>
+    <text x="436" y="368" class="label">- SQLite runtime DB &amp; weather-streamer.db</text>
+    <text x="436" y="388" class="label">- Simulations table (RowVersion column)</text>
+    <text x="436" y="408" class="label">- AuditEntries table (deletes / updates)</text>
+  </g>
+
+  <!-- Tests / CI -->
+  <g>
+    <rect x="24" y="320" width="320" height="140" class="box" filter="url(#shadow)"/>
+    <text x="36" y="344" class="groupTitle">Tests / Dev Automation</text>
+    <text x="36" y="368" class="label">- Integration tests (WebApplicationFactory, InMemory DB)</text>
+    <text x="36" y="388" class="label">- Unit tests (xUnit)</text>
+    <text x="36" y="408" class="small">- run_patch_flow.ps1 used to exercise ETag lifecycle</text>
+  </g>
+
+  <!-- Logs / Observability -->
+  <g>
+    <rect x="960" y="352" width="220" height="120" class="box" filter="url(#shadow)"/>
+    <text x="972" y="376" class="groupTitle">Observability</text>
+    <text x="972" y="400" class="label">- Serilog / File logs</text>
+    <text x="972" y="420" class="label">- Dev logs: C:\\temp\\weather_api.out.log</text>
+    <text x="972" y="440" class="small">- Development-only If-Match raw header logging</text>
+  </g>
+
+  <!-- Arrows: Clients -> API -->
+  <path d="M 244 152 L 300 152" class="arrow" />
+  <text x="260" y="142" class="small">HTTP</text>
+
+  <!-- API to Infrastructure -->
+  <path d="M 920 200 L 960 200" class="arrow" />
+  <text x="780" y="176" class="small">Repository calls (concurrency checks)</text>
+
+  <!-- API -> DB -->
+  <path d="M 600 292 L 600 320" class="arrow" />
+  <path d="M 600 440 L 600 440" stroke="none"/>
+  <text x="610" y="310" class="small">EF Core / SQL</text>
+
+  <!-- Infrastructure -> DB -->
+  <path d="M 1080 320 L 770 320" class="arrow" />
+  <text x="920" y="310" class="small">SQL statements (UPDATE/INSERT/SELECT)</text>
+
+  <!-- Tests -> API -->
+  <path d="M 164 420 L 300 420" class="arrow" />
+  <text x="220" y="410" class="small">WebApplicationFactory (Testing env)</text>
+
+  <!-- Notes block -->
+  <rect x="24" y="480" width="1160" height="260" rx="6" fill="#FFFFFF" stroke="#CBD5E1" stroke-width="1" />
+  <text x="36" y="506" class="groupTitle">Notes</text>
+  <text x="36" y="528" class="small">- API enforces optimistic concurrency using If-Match header and RowVersion exposed as base64 ETag.</text>
+  <text x="36" y="548" class="small">- Controller normalizes incoming ETag forms (quoted, unquoted, weak W/). Handlers accept raw base64 token.</text>
+  <text x="36" y="568" class="small">- Swagger helper ensures If-Match is populated for PATCH/DELETE flows in the UI (defense-in-depth: controller also normalizes).</text>
+  <text x="36" y="588" class="small">- Development backfill assigns RowVersion to existing rows so GET returns ETag in dev environments.</text>
+  <text x="36" y="608" class="small">- Integration test `EtagsLifecycleTests` covers POST→GET→PATCH→DELETE and ETag transitions (InMemory DB).</text>
+
+</svg>
