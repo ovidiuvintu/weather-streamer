@@ -49,6 +49,14 @@
           } else {
             req.init.headers['If-Match'] = raw;
           }
+          // Also set on req.headers for Swagger versions that read headers from there
+          if (req.headers) {
+            if (typeof req.headers.set === 'function') {
+              req.headers.set('If-Match', raw);
+            } else {
+              req.headers['If-Match'] = raw;
+            }
+          }
           return req;
         })
         .catch(function () { return req; });
