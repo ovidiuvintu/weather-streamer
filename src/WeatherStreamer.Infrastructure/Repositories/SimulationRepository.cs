@@ -29,10 +29,29 @@ public class SimulationRepository : ISimulationRepository
 
         try
         {
+            // Some providers (e.g., SQLite, InMemory) do not auto-generate SQL rowversion/timestamp
+            // values. Ensure the new entity has a RowVersion so API can expose an ETag immediately
+            // after creation by synthesizing one if not present.
+            if (simulation.RowVersion is null || simulation.RowVersion.Length == 0)
+            {
+                simulation.RowVersion = RandomNumberGenerator.GetBytes(8);
+            }
+
             _context.Simulations.Add(simulation);
             // SaveChangesAsync uses implicit transaction - will rollback on exception
             await _context.SaveChangesAsync(cancellationToken);
-            
+
+            // Some providers (SQLite/InMemory) may not persist a pre-set RowVersion value when the
+            // property is configured as a rowversion/concurrency token. If the DB did not persist the
+            // RowVersion we assigned above, perform a follow-up update to ensure the value is stored
+            // so callers (and clients) can observe an ETag immediately after creation.
+            if (simulation.RowVersion is null || simulation.RowVersion.Length == 0)
+            {
+                simulation.RowVersion = RandomNumberGenerator.GetBytes(8);
+                _context.Simulations.Update(simulation);
+                await _context.SaveChangesAsync(cancellationToken);
+            }
+
             return simulation;
         }
         catch (DbUpdateException ex)
