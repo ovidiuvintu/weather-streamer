@@ -95,4 +95,38 @@ public class SimulationRepository : ISimulationRepository
             throw new InvalidOperationException("Failed to update simulation due to a database error.", ex);
         }
     }
+
+    /// <inheritdoc />
+    public async Task<bool> SoftDeleteAsync(int id, byte[] ifMatchRowVersion, CancellationToken cancellationToken = default)
+    {
+        if (id <= 0) throw new ArgumentOutOfRangeException(nameof(id));
+        if (ifMatchRowVersion is null || ifMatchRowVersion.Length == 0) throw new ArgumentException("If-Match rowversion is required", nameof(ifMatchRowVersion));
+
+        var entity = await _context.Simulations.FirstOrDefaultAsync(s => s.Id == id, cancellationToken);
+        if (entity is null)
+            return false;
+
+        try
+        {
+            var entry = _context.Entry(entity);
+            entry.Property(e => e.RowVersion).OriginalValue = ifMatchRowVersion;
+
+            entity.IsDeleted = true;
+
+            // bump RowVersion to simulate DB behavior on providers that don't auto-generate
+            entity.RowVersion = RandomNumberGenerator.GetBytes(8);
+
+            _context.Update(entity);
+            await _context.SaveChangesAsync(cancellationToken);
+            return true;
+        }
+        catch (DbUpdateConcurrencyException ex)
+        {
+            throw new InvalidOperationException("Concurrency conflict detected while deleting Simulation.", ex);
+        }
+        catch (DbUpdateException ex)
+        {
+            throw new InvalidOperationException("Failed to delete simulation due to a database error.", ex);
+        }
+    }
 }

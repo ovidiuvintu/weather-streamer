@@ -106,6 +106,12 @@ public class UpdateSimulationHandlerAuditTests
             return Task.FromResult(_entity);
         }
 
+        public Task<bool> SoftDeleteAsync(int id, byte[] ifMatchRowVersion, CancellationToken cancellationToken = default)
+        {
+            // Not used in this test
+            return Task.FromResult(false);
+        }
+
         // The rest of the repo interface is not needed for this test; provide throw stubs
         public Task<List<Simulation>> ListAsync(CancellationToken cancellationToken = default) => throw new NotImplementedException();
         public Task<int> AddAsync(Simulation entity, CancellationToken cancellationToken = default) => throw new NotImplementedException();
